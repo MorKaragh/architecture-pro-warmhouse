@@ -1,0 +1,272 @@
+openapi: 3.0.3
+info:
+  title: Heat Service API
+  description: |
+    API для управления системой отопления в умном доме.
+    Сервис предоставляет возможности управления режимами отопления, 
+    установки целевой температуры и получения текущего состояния системы.
+  version: 1.0.0
+  contact:
+    name: WarmHouse Team
+    email: support@warmhouse.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8082
+    description: Локальный сервер разработки
+  - url: http://heat-service:8082
+    description: Сервер в Docker контейнере
+
+tags:
+  - name: Commands
+    description: Управление системой отопления
+  - name: Data
+    description: Получение данных о состоянии системы
+
+paths:
+  /api/v1/heat/commands/mode:
+    post:
+      tags:
+        - Commands
+      summary: Установить режим отопления
+      description: |
+        Устанавливает режим работы системы отопления для указанного устройства.
+        Поддерживаемые режимы: AUTO (автоматический), MANUAL (ручной), OFF (выключено).
+      operationId: setHeatMode
+      parameters:
+        - name: deviceId
+          in: query
+          required: true
+          description: Идентификатор устройства отопления
+          schema:
+            type: string
+            example: "heat_module_001"
+        - name: mode
+          in: query
+          required: true
+          description: Режим работы отопления
+          schema:
+            type: string
+            enum: [AUTO, MANUAL, OFF]
+            example: "AUTO"
+      responses:
+        '200':
+          description: Режим успешно установлен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Heat mode set to AUTO"
+        '400':
+          description: Неверные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Устройство не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/heat/commands/temperature:
+    post:
+      tags:
+        - Commands
+      summary: Установить целевую температуру
+      description: |
+        Устанавливает целевую температуру для системы отопления.
+        Температура указывается в градусах Цельсия.
+      operationId: setTargetTemperature
+      parameters:
+        - name: deviceId
+          in: query
+          required: true
+          description: Идентификатор устройства отопления
+          schema:
+            type: string
+            example: "heat_module_001"
+        - name: temperature
+          in: query
+          required: true
+          description: Целевая температура в градусах Цельсия
+          schema:
+            type: number
+            format: double
+            minimum: 5.0
+            maximum: 35.0
+            example: 22.5
+      responses:
+        '200':
+          description: Целевая температура успешно установлена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Target temperature set to 22.5°C"
+        '400':
+          description: Неверные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Устройство не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/heat/state/{deviceId}:
+    get:
+      tags:
+        - Data
+      summary: Получить текущее состояние отопления
+      description: |
+        Возвращает текущее состояние системы отопления для указанного устройства,
+        включая текущую и целевую температуру, режим работы и статус.
+      operationId: getHeatState
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          description: Идентификатор устройства отопления
+          schema:
+            type: string
+            example: "heat_module_001"
+      responses:
+        '200':
+          description: Состояние системы отопления
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatState'
+        '404':
+          description: Устройство не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/heat/test:
+    get:
+      tags:
+        - Data
+      summary: Проверка работоспособности сервиса
+      description: |
+        Простая проверка работоспособности сервиса отопления.
+        Возвращает статусное сообщение.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Сервис работает
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Heat Service is running!"
+
+components:
+  schemas:
+    HeatState:
+      type: object
+      description: Состояние системы отопления
+      required:
+        - deviceId
+        - currentTemperature
+        - targetTemperature
+        - mode
+        - heatingEnabled
+        - status
+      properties:
+        deviceId:
+          type: string
+          description: Идентификатор устройства отопления
+          example: "heat_module_001"
+        currentTemperature:
+          type: number
+          format: double
+          description: Текущая температура в градусах Цельсия
+          example: 21.5
+        targetTemperature:
+          type: number
+          format: double
+          description: Целевая температура в градусах Цельсия
+          example: 22.0
+        mode:
+          type: string
+          description: Режим работы отопления
+          enum: [AUTO, MANUAL, OFF]
+          example: "AUTO"
+        heatingEnabled:
+          type: boolean
+          description: Включено ли отопление
+          example: true
+        status:
+          type: string
+          description: Статус системы отопления
+          enum: [ACTIVE, INACTIVE, ERROR]
+          example: "ACTIVE"
+
+    ErrorResponse:
+      type: object
+      description: Ответ об ошибке
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Тип ошибки
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          description: Описание ошибки
+          example: "Invalid temperature value"
+        timestamp:
+          type: string
+          format: date-time
+          description: Время возникновения ошибки
+          example: "2024-01-15T10:30:00Z"
+        path:
+          type: string
+          description: Путь запроса, вызвавшего ошибку
+          example: "/api/v1/heat/commands/temperature"
+
+
+externalDocs:
+  description: Документация системы WarmHouse
+  url: https://docs.warmhouse.com

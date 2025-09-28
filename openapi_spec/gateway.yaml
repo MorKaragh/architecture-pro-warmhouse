@@ -1,0 +1,333 @@
+openapi: 3.0.3
+info:
+  title: WarmHouse Gateway API
+  version: 1.0.0
+  description: |
+    Gateway для модулей умного дома. Управление регистрацией модулей и проксирование запросов.
+servers:
+  - url: http://modules-gateway:8083
+    description: Development
+  - url: https://api.warmhouse.local
+    description: Production
+tags:
+  - name: Modules
+    description: Управление модулями умного дома
+  - name: Proxy
+    description: Проксирование запросов к модулям
+  - name: Internal
+    description: Внутренние эндпоинты
+components:
+  parameters:
+    ModuleId:
+      name: module_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    HouseholdId:
+      name: household_id
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+  headers:
+    X-Request-Id:
+      description: Идентификатор запроса для трассировки
+      schema:
+        type: string
+  schemas:
+    Error:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer, format: int32 }
+        detail: { type: string }
+        trace_id: { type: string }
+    ModuleRegistrationRequest:
+      type: object
+      required: [moduleId, moduleType, homeId, baseUrl]
+      properties:
+        moduleId: { type: string, description: ID модуля }
+        moduleType: { type: string, description: Тип модуля }
+        homeId: { type: string, description: ID дома }
+        baseUrl: { type: string, description: Базовый URL модуля }
+        description: { type: string, description: Описание модуля }
+    ModuleRegistrationResponse:
+      type: object
+      required: [success, message, moduleId]
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        moduleId: { type: string }
+    ModuleRegistration:
+      type: object
+      required: [id, moduleId, moduleType, homeId, baseUrl, status, registeredAt]
+      properties:
+        id: { type: integer, format: int64 }
+        moduleId: { type: string }
+        moduleType: { type: string }
+        homeId: { type: string }
+        baseUrl: { type: string }
+        status: { type: string }
+        registeredAt: { type: string, format: date-time }
+        lastHeartbeat: { type: string, format: date-time }
+        description: { type: string }
+paths:
+  /api/v1/modules/register:
+    post:
+      tags: [Modules]
+      summary: Регистрация модуля
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ModuleRegistrationRequest' }
+      responses:
+        '200':
+          description: Успешная регистрация
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModuleRegistrationResponse' }
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModuleRegistrationResponse' }
+  
+  /api/v1/modules/{moduleId}/heartbeat:
+    post:
+      tags: [Modules]
+      summary: Heartbeat модуля
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: homeId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Heartbeat обновлен
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModuleRegistrationResponse' }
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModuleRegistrationResponse' }
+  
+  /api/v1/modules/home/{homeId}:
+    get:
+      tags: [Modules]
+      summary: Получить модули по дому
+      parameters:
+        - name: homeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Список модулей
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ModuleRegistration' }
+  
+  /api/v1/modules/type/{moduleType}:
+    get:
+      tags: [Modules]
+      summary: Получить модули по типу
+      parameters:
+        - name: moduleType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Список модулей
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ModuleRegistration' }
+  
+  /api/v1/modules:
+    get:
+      tags: [Modules]
+      summary: Получить все модули
+      responses:
+        '200':
+          description: Список всех модулей
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ModuleRegistration' }
+  
+  /api/v1/modules/{moduleId}:
+    delete:
+      tags: [Modules]
+      summary: Отменить регистрацию модуля
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: homeId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Модуль отменен
+        '404':
+          description: Модуль не найден
+  
+  /api/v1/modules/{moduleId}/proxy/**:
+    get:
+      tags: [Proxy]
+      summary: Прокси GET запрос к модулю
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ответ от модуля
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Модуль не найден
+        '500':
+          description: Ошибка проксирования
+    
+    post:
+      tags: [Proxy]
+      summary: Прокси POST запрос к модулю
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: Ответ от модуля
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Модуль не найден
+        '500':
+          description: Ошибка проксирования
+    
+    put:
+      tags: [Proxy]
+      summary: Прокси PUT запрос к модулю
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: Ответ от модуля
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Модуль не найден
+        '500':
+          description: Ошибка проксирования
+    
+    delete:
+      tags: [Proxy]
+      summary: Прокси DELETE запрос к модулю
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ответ от модуля
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Модуль не найден
+        '500':
+          description: Ошибка проксирования
+    
+    patch:
+      tags: [Proxy]
+      summary: Прокси PATCH запрос к модулю
+      parameters:
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: Ответ от модуля
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Модуль не найден
+        '500':
+          description: Ошибка проксирования
+  
+  /api/v1/internal/test:
+    get:
+      tags: [Internal]
+      summary: Тестовый endpoint
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+
+

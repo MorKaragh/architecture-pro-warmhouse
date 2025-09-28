@@ -1,0 +1,188 @@
+openapi: 3.0.3
+info:
+  title: WarmHouse Scenarios Service API
+  version: 1.0.0
+  description: CRUD пользовательских сценариев и управление их жизненным циклом
+servers:
+  - url: https://api.warmhouse.local
+    description: Production
+  - url: https://staging.api.warmhouse.local
+    description: Staging
+tags:
+  - name: Scenarios
+components:
+  parameters:
+    ScenarioId:
+      name: scenario_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    OwnerId:
+      name: owner_id
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+    HouseholdId:
+      name: household_id
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    Error:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer, format: int32 }
+        detail: { type: string }
+    ScenarioCreateRequest:
+      type: object
+      required: [name, lua_script, household_id]
+      properties:
+        name: { type: string }
+        lua_script: { type: string, description: Lua-скрипт сценария }
+        owner_id: { type: string, format: uuid, nullable: true }
+        household_id: { type: string, format: uuid }
+        enabled: { type: boolean, default: true }
+    ScenarioUpdateRequest:
+      type: object
+      properties:
+        name: { type: string }
+        lua_script: { type: string }
+        enabled: { type: boolean }
+    Scenario:
+      type: object
+      required: [id, name, household_id, enabled, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        household_id: { type: string, format: uuid }
+        owner_id: { type: string, format: uuid, nullable: true }
+        enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time, nullable: true }
+        lua_script: { type: string }
+    ScenarioList:
+      type: object
+      required: [scenarios]
+      properties:
+        scenarios:
+          type: array
+          items: { $ref: '#/components/schemas/Scenario' }
+paths:
+  /api/v1/scenarios:
+    get:
+      tags: [Scenarios]
+      summary: Поиск сценариев
+      parameters:
+        - $ref: '#/components/parameters/OwnerId'
+        - $ref: '#/components/parameters/HouseholdId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScenarioList' }
+    post:
+      tags: [Scenarios]
+      summary: Создать сценарий
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScenarioCreateRequest' }
+      responses:
+        '201':
+          description: Создано
+          headers:
+            Location:
+              description: URI созданного сценария
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Scenario' }
+  /api/v1/scenarios/{scenario_id}:
+    get:
+      tags: [Scenarios]
+      summary: Получить сценарий
+      parameters:
+        - $ref: '#/components/parameters/ScenarioId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Scenario' }
+        '404':
+          description: Не найдено
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Error' }
+    put:
+      tags: [Scenarios]
+      summary: Обновить сценарий
+      parameters:
+        - $ref: '#/components/parameters/ScenarioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScenarioUpdateRequest' }
+      responses:
+        '204':
+          description: Обновлено
+        '404':
+          description: Не найдено
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      tags: [Scenarios]
+      summary: Удалить сценарий
+      parameters:
+        - $ref: '#/components/parameters/ScenarioId'
+      responses:
+        '204':
+          description: Удалено
+        '404':
+          description: Не найдено
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/scenarios/{scenario_id}:start:
+    post:
+      tags: [Scenarios]
+      summary: Запустить сценарий
+      parameters:
+        - $ref: '#/components/parameters/ScenarioId'
+      responses:
+        '204':
+          description: Запуск инициирован
+        '404':
+          description: Не найдено
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/scenarios/{scenario_id}:stop:
+    post:
+      tags: [Scenarios]
+      summary: Остановить сценарий
+      parameters:
+        - $ref: '#/components/parameters/ScenarioId'
+      responses:
+        '204':
+          description: Остановка инициирована
+        '404':
+          description: Не найдено
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+

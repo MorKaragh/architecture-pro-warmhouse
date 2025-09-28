@@ -1,0 +1,125 @@
+@startuml warmhouse erd
+
+title Система "Тёплый Дом" — ERD основных сущностей
+
+hide circle
+skinparam linetype ortho
+
+entity "Household" as household {
+  * id: UUID
+  --
+  name: string
+  address: string
+  created_at: timestamptz
+}
+
+entity "Module" as module {
+  * id: UUID
+  --
+  household_id: UUID
+  type: enum   // heat, locks, surveillance, light
+  model: string
+  protocol: string // HTTP или что-то другое
+  metadata: jsonb
+  registered_at: timestamptz
+}
+
+entity "ModuleRoute" as route {
+  * module_id: UUID   // PK = FK to Module.id (1:1)
+  --
+  endpoint: string    // URL 
+  last_heartbeat_at: timestamptz
+  updated_at: timestamptz
+}
+
+entity "Telemetry" as telemetry {
+  * id: UUID
+  --
+  module_id: UUID
+  ts: timestamptz
+  payload: jsonb
+}
+
+entity "Command" as command {
+  * id: UUID
+  --
+  module_id: UUID
+  created_at: timestamptz
+  name: string
+  params: jsonb
+  status: enum        // queued, sent, acked, failed
+  sent_at: timestamptz
+  ack_at: timestamptz
+}
+
+entity "Event" as event {
+  * id: UUID
+  --
+  module_id: UUID
+  ts: timestamptz
+  type: string
+  payload: jsonb
+}
+
+entity "User" as usr {
+  * id: UUID
+  --
+  email: string
+  role: enum          // admin, user, installer
+  created_at: timestamptz
+}
+
+entity "Scenario" as scenario {
+  * id: UUID
+  --
+  owner_user_id: UUID?   // nullable: системные сценарии без владельца
+  household_id: UUID     // привязка сценария к домохозяйству
+  name: string
+  enabled: boolean
+  created_at: timestamptz
+}
+
+entity "ScenarioStep" as scenario_step {
+  * id: UUID
+  --
+  scenario_id: UUID
+  step_order: int
+  action: string      // command, wait, condition
+  params: jsonb
+}
+
+entity "ScenarioSchedule" as scenario_schedule {
+  * id: UUID
+  --
+  scenario_id: UUID
+  cron_expression: string
+  timezone: string
+  enabled: boolean
+  created_at: timestamptz
+}
+
+' Relationships
+usr ||--o{ household : "содержит"
+household ||--o{ module : "содержит"
+module ||--|| route : "маршрутизируется"
+module ||--o{ telemetry : "публикует"
+module ||--o{ command : "получает"
+module ||--o{ event : "публикует"
+usr ||--o{ scenario : "содержит"  // optional (owner_user_id nullable)
+household ||--o{ scenario : "содержит"
+scenario ||--o{ scenario_step : "содержит"
+scenario ||--o{ scenario_schedule : "имеет расписание"
+
+' Notes reflecting integration (Kafka topics)
+note right of telemetry
+  Push-телеметрия публикуется через Kafka producer
+  (StreamingDataService -> KafkaTelemetryProducer)
+end note
+
+note right of event
+  События модулей публикуются в Kafka (eventq)
+end note
+
+@enduml
+
+

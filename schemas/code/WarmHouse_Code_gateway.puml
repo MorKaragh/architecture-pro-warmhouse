@@ -1,0 +1,99 @@
+@startuml warmhouse gateway class diagram
+
+title Система "Тёплый Дом" — Диаграмма классов: Gateway для модулей
+
+skinparam classAttributeIconSize 0
+
+
+package "external_api" {
+
+
+    class StreamingDataRecieverController {
+        + void pushTelemetry(ModuleTelemetry data)
+    }
+
+    class ModuleLifecycleController {
+        + RegisterResponse register(ModuleMetadataRequest rqst)
+        + HeartbeatResponse heartbeat(ModuleMetadataRequest rqst)
+    }
+
+}
+
+package "internal_api" {
+
+    class ModuleControlController {
+        + CommandResponse sendCommand(ModuleCommand cmd)
+    }
+
+    class ModuleQueryController {
+        + ModuleTelemetry query(UUID moduleId)
+    }
+
+}
+
+package "service" {
+
+    class StreamingDataService {
+        + void accept(ModuleTelemetry data)
+    }
+
+    class ModuleLifecycleService {
+        + RegisterResponse register(ModuleMetadataRequest rqst)
+        + HeartbeatResponse heartbeat(ModuleMetadataRequest rqst)
+    }
+
+    class RoutingService {
+        + ModuleRoute resolve(UUID moduleId)
+        + void updateRouteOnRegister(ModuleMetadataRequest rqst)
+    }
+
+    class ModuleControlService {
+        + CommandResponse sendCommand(ModuleCommand cmd)
+    }
+
+    class ModuleQueryService {
+        + ModuleTelemetry query(UUID moduleId)
+    }
+
+}
+
+package "integration" {
+
+    class ModuleAdapter {
+        + CommandResponse sendCommand(ModuleRoute route, ModuleCommand cmd)
+        + ModuleTelemetry query(ModuleRoute route)
+    }
+
+    class KafkaTelemetryProducer {
+        + void publishTelemetry(ModuleTelemetry data)
+    }
+
+}
+
+package "db" {
+
+    interface RoutingRepository {
+        + Optional<ModuleRoute> findByModuleId(UUID moduleId)
+        + void upsert(ModuleRoute route)
+    }
+
+}
+
+ModuleControlController -down-> ModuleControlService
+ModuleQueryController -down-> ModuleQueryService
+ModuleLifecycleController -down-> ModuleLifecycleService
+StreamingDataRecieverController -down-> StreamingDataService
+
+ModuleQueryService --> RoutingService
+ModuleControlService --> RoutingService
+ModuleLifecycleService --> RoutingService
+RoutingService --> RoutingRepository
+
+StreamingDataService --> KafkaTelemetryProducer
+ModuleControlService --> ModuleAdapter
+ModuleQueryService --> ModuleAdapter
+
+@enduml
+
+
+

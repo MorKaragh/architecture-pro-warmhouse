@@ -1,0 +1,327 @@
+openapi: 3.0.3
+info:
+  title: Temperature API
+  description: |
+    API для работы с Программно-аппаратным комплексом "модуль отопления". Предполагается что эта штука установлена в доме.
+  version: 1.0.0
+  contact:
+    name: WarmHouse Team
+    email: support@warmhouse.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8081
+    description: Локальный сервер разработки
+  - url: http://temperature-api:8081
+    description: Сервер в Docker контейнере
+
+tags:
+  - name: Temperature
+    description: Получение данных о температуре
+  - name: Heat Control
+    description: Управление системой отопления
+  - name: Commands
+    description: Обработка команд от gateway
+
+paths:
+  /temperature:
+    get:
+      tags:
+        - Temperature
+      summary: Получить текущую температуру
+      description: |
+        Возвращает текущую температуру для указанной локации.
+        Температура генерируется с реалистичной симуляцией изменений.
+      operationId: getTemperature
+      parameters:
+        - name: location
+          in: query
+          required: false
+          description: Локация для измерения температуры
+          schema:
+            type: string
+            default: "default"
+            example: "living_room"
+      responses:
+        '200':
+          description: Данные о температуре
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemperatureResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /commands:
+    post:
+      tags:
+        - Commands
+      summary: Обработать команду управления отоплением
+      description: |
+        Обрабатывает команды управления отоплением от gateway.
+        Поддерживает команды установки режима и целевой температуры.
+      operationId: processHeatCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeatCommand'
+      responses:
+        '200':
+          description: Команда успешно обработана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+        '400':
+          description: Неверные параметры команды
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /heat/state/{deviceId}:
+    get:
+      tags:
+        - Heat Control
+      summary: Получить состояние системы отопления
+      description: |
+        Возвращает текущее состояние системы отопления для указанного устройства,
+        включая текущую и целевую температуру, режим работы и статус.
+      operationId: getHeatState
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          description: Идентификатор устройства отопления
+          schema:
+            type: string
+            example: "heat_module_001"
+      responses:
+        '200':
+          description: Состояние системы отопления
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatState'
+        '404':
+          description: Устройство не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    TemperatureResponse:
+      type: object
+      description: Ответ с данными о температуре
+      required:
+        - location
+        - value
+        - unit
+      properties:
+        location:
+          type: string
+          description: Локация измерения температуры
+          example: "living_room"
+        value:
+          type: number
+          format: double
+          description: Значение температуры в градусах Цельсия
+          example: 22.5
+        unit:
+          type: string
+          description: Единица измерения температуры
+          enum: ["C"]
+          example: "C"
+
+    HeatCommand:
+      type: object
+      description: Команда управления отоплением
+      required:
+        - type
+        - deviceId
+        - data
+      properties:
+        type:
+          type: string
+          description: Тип команды
+          enum: [SET_MODE, SET_TEMPERATURE]
+          example: "SET_MODE"
+        deviceId:
+          type: string
+          description: Идентификатор устройства
+          example: "heat_module_001"
+        data:
+          type: object
+          description: Данные команды
+          example:
+            mode: "AUTO"
+            # или
+            temperature: 22.5
+
+    HeatState:
+      type: object
+      description: Состояние системы отопления
+      required:
+        - deviceId
+        - currentTemperature
+        - targetTemperature
+        - mode
+        - heatingEnabled
+        - status
+      properties:
+        deviceId:
+          type: string
+          description: Идентификатор устройства отопления
+          example: "heat_module_001"
+        currentTemperature:
+          type: number
+          format: double
+          description: Текущая температура в градусах Цельсия
+          example: 21.5
+        targetTemperature:
+          type: number
+          format: double
+          description: Целевая температура в градусах Цельсия
+          example: 22.0
+        mode:
+          type: string
+          description: Режим работы отопления
+          enum: [AUTO, MANUAL, OFF]
+          example: "AUTO"
+        heatingEnabled:
+          type: boolean
+          description: Включено ли отопление
+          example: true
+        status:
+          type: string
+          description: Статус системы отопления
+          enum: [ACTIVE, INACTIVE, ERROR]
+          example: "ACTIVE"
+
+    CommandResponse:
+      type: object
+      description: Ответ на команду управления
+      required:
+        - success
+        - message
+        - deviceId
+        - commandType
+      properties:
+        success:
+          type: boolean
+          description: Успешность выполнения команды
+          example: true
+        message:
+          type: string
+          description: Сообщение о результате выполнения
+          example: "Command processed successfully"
+        deviceId:
+          type: string
+          description: Идентификатор устройства
+          example: "heat_module_001"
+        commandType:
+          type: string
+          description: Тип выполненной команды
+          example: "SET_MODE"
+
+    ModuleRegistrationRequest:
+      type: object
+      description: Запрос регистрации модуля в gateway
+      required:
+        - moduleId
+        - moduleType
+        - homeId
+        - baseUrl
+      properties:
+        moduleId:
+          type: string
+          description: Идентификатор модуля
+          example: "temperature-module-factory-001"
+        moduleType:
+          type: string
+          description: Тип модуля
+          example: "TEMPERATURE"
+        homeId:
+          type: string
+          description: Идентификатор дома
+          example: "default-home"
+        baseUrl:
+          type: string
+          description: Базовый URL модуля
+          example: "http://temperature-api:8081"
+        description:
+          type: string
+          description: Описание модуля
+          example: "Temperature sensor module for smart home"
+
+    ModuleRegistrationResponse:
+      type: object
+      description: Ответ на запрос регистрации модуля
+      required:
+        - success
+        - message
+        - moduleId
+      properties:
+        success:
+          type: boolean
+          description: Успешность регистрации
+          example: true
+        message:
+          type: string
+          description: Сообщение о результате регистрации
+          example: "Module registered successfully"
+        moduleId:
+          type: string
+          description: Идентификатор зарегистрированного модуля
+          example: "temperature-module-factory-001"
+
+    ErrorResponse:
+      type: object
+      description: Ответ об ошибке
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Тип ошибки
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          description: Описание ошибки
+          example: "Invalid command type"
+        timestamp:
+          type: string
+          format: date-time
+          description: Время возникновения ошибки
+          example: "2024-01-15T10:30:00Z"
+        path:
+          type: string
+          description: Путь запроса, вызвавшего ошибку
+          example: "/commands"
+
+externalDocs:
+  description: Документация системы WarmHouse
+  url: https://docs.warmhouse.com

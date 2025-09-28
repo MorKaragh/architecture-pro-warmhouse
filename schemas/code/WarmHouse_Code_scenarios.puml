@@ -1,0 +1,94 @@
+@startuml warmhouse scenarios class diagram
+
+title Система "Тёплый Дом" — Диаграмма классов: Сервис сценариев
+
+skinparam classAttributeIconSize 0
+
+package "api" {
+
+    class CustomScenariosController {
+        + ResponseEntity<ScenarioId> create(CustomScenarioRequest request)
+        + ResponseEntity<Void> update(ScenarioId id, CustomScenarioRequest request)
+        + ResponseEntity<Void> delete(ScenarioId id)
+        + ResponseEntity<ScenarioDto> get(ScenarioId id)
+    }
+
+    class ScenariosController {
+        + ResponseEntity<Void> start(ScenarioId id)
+        + ResponseEntity<Void> stop(ScenarioId id)
+        + ResponseEntity<List<ScenarioDto>> list()
+    }
+
+}
+
+package "service" {
+
+    class CustomScenariosService {
+        + ScenarioId create(CustomScenarioDefinition definition)
+        + void update(ScenarioId id, CustomScenarioDefinition definition)
+        + void delete(ScenarioId id)
+        + Scenario get(ScenarioId id)
+    }
+
+    class ScenarioLifecycleService {
+        + void start(ScenarioId id)
+        + void stop(ScenarioId id)
+        + void handleEvent(DeviceEvent event)
+    }
+
+    class CustomScenarioValidator {
+        + void validate(CustomScenarioDefinition definition)
+    }
+
+    class EventManager {
+        + void onEvent(DeviceEvent event)
+    }
+
+    class SchedulerService {
+        + void schedule(ScenarioId id, Schedule schedule)
+        + void cancel(ScenarioId id)
+    }
+
+}
+
+package "integration" {
+
+    class ModulesServiceClient {
+        + void sendControlSignal(ControlSignal signal)
+    }
+
+    class EventQueueConsumer {
+        + void consume(DeviceEvent event)
+    }
+
+}
+
+package "db" {
+
+    interface ScenariosRepository {
+        + Scenario save(Scenario scenario)
+        + Scenario findById(ScenarioId id)
+        + void deleteById(ScenarioId id)
+        + List<Scenario> findAll()
+    }
+
+}
+
+CustomScenariosController -down-> CustomScenariosService
+ScenariosController -down-> ScenarioLifecycleService
+
+CustomScenariosService -down-> ScenariosRepository
+CustomScenariosService -down-> CustomScenarioValidator
+
+ScenarioLifecycleService -down-> ScenariosRepository
+ScenarioLifecycleService --> ModulesServiceClient
+ScenarioLifecycleService --> EventManager
+SchedulerService --> ScenarioLifecycleService
+
+EventQueueConsumer --> EventManager
+EventManager --> ScenarioLifecycleService : delegate
+
+@enduml
+
+
+

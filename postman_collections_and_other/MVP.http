@@ -1,0 +1,28 @@
+@monolith = http://localhost:8080
+@temperature_api = http://localhost:8081
+@heat_service = http://localhost:8082
+@gateway = http://localhost:8083
+
+### Проверим что temperature-api возвращает температуру
+GET {{temperature_api}}/temperature?location=test 
+
+### Проверим что temperature-api зарегистрировалось в gateway
+GET {{gateway}}/api/v1/modules
+
+### Получим температуру из temperature-api через gateway
+GET {{gateway}}/api/v1/modules/temperature-module-factory-001/proxy/temperature?location=kitchen
+
+### Получим температуру из "монолита" smart_home
+GET {{monolith}}/api/v1/sensors/temperature/kitchen 
+
+### Получение состояния отопления из микросервиса отопления (heat service)
+GET {{heat_service}}/api/v1/heat/state/temperature-module-factory-001
+
+### Установка нового режима отопления через микросервис отопления (heat service)
+POST {{heat_service}}/api/v1/heat/commands/mode?deviceId=temperature-module-factory-001&mode=MANUAL
+
+### Установка целевой температуры
+POST {{heat_service}}/api/v1/heat/commands/temperature?deviceId=temperature-module-factory-001&temperature=18.0
+
+### Ещё раз получаем состояние и смотрим что режим и целевая температура изменились
+GET {{heat_service}}/api/v1/heat/state/temperature-module-factory-001

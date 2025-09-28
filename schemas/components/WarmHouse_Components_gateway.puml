@@ -1,0 +1,55 @@
+@startuml warmhouse containers diagram
+!include ../assets/C4_templates/C4_Component.puml
+
+title Система "Тёплый Дом", "Gateway для модулей" (C4 Components)
+
+Boundary(main_system, "Система Тёплый Дом") {
+    Boundary(service, "Gateway для модулей") {
+        Boundary(pull_part, "pull-взаимодействие") {
+            Component(command_srv, "Сервис отправки управляющих сигналов модулям умного дома", "", "Реализация логики отправки управляющих сигналов")
+            Component(module_adapter, "Адаптер к модулю", "", "Реализует непосредственно вызов модуля + resilience-паттерны")
+            Component(control_sig_ctrl, "Контроллер управления модулями умного дома", "", "HTTP endpoint'ы для управления модулями умного дома")
+            Component(pull_data_ctrl, "Контроллер запроса данных у модуля умного дома", "", "HTTP endpoint'ы для получения данных из модулей умного дома")
+            Component(pull_data_srv, "Сервис запроса данных у модуля умного дома", "", "Реализация логики получения данных из модулей умного дома")
+        }
+        Boundary(push_part, "push-взаимодействие") {
+            Component(active_gather_ctrl, "Контроллер приема данных от модулей", "", "HTTP endpoint'ы используемые модулями для активной передачи данных/стриминга")
+            Component(query_srv, "Сервис приема данных с модуля умного дома", "", "Реализация логики приема передаваемых модулем данных")
+            Component(register_ctrl, "Контроллер регистрации модулей", "", "HTTP endpoint'ы управления подключением модулей")
+            Component(modules_reg_srv, "Сервис учёта подключенных модулей", "", "Реализация логики учёта подключенных модулей")
+        }
+
+        ComponentDb(routing_srv, "Репозиторий маршрутов до модулей умного дома", "", "Хранит данные о том, как обратиться к определенному модулю в определенном домохозяйстве")
+    }
+
+    ComponentDb_Ext(pgdb, "PostgreSQL", "", "")
+    System_Ext(module_srv, "Микросервис работы с модулем умного дома", "", "")
+    SystemQueue_Ext(data_broker, "Брокер данных телеметрии", "Kafka", "")
+
+}
+
+Boundary(home, "Домохозяйство") {
+    System_Ext(module, "Модуль умного дома", "")
+}
+
+Rel(module, register_ctrl, "оповещение о запуске модуля, heartbeat", "HTTP")
+Rel(module, active_gather_ctrl, "для модулей с push-режимом", "HTTP")
+Rel(control_sig_ctrl, command_srv, "")
+Rel(active_gather_ctrl, query_srv, "")
+Rel(register_ctrl, modules_reg_srv, "")
+Rel(module_srv, pull_data_ctrl, "для модулей с pull-режимом", "HTTP")
+Rel(pull_data_ctrl, pull_data_srv, "")
+Rel(pull_data_srv, module_adapter, "")
+
+Rel(module_adapter, module, "")
+Rel(module_srv, control_sig_ctrl, "сигналы управления модулями", "HTTP, REST")
+Rel(query_srv, data_broker, "данные, переданные модулем в push-режиме", "kafka")
+
+Rel(command_srv, module_adapter, "")
+Rel(modules_reg_srv, routing_srv, "write")
+Rel(command_srv, routing_srv, "read")
+Rel(pull_data_srv, routing_srv, "read")
+BiRel_D(routing_srv, pgdb, "")
+
+
+@enduml

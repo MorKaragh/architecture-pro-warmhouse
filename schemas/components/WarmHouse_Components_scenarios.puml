@@ -1,0 +1,40 @@
+@startuml warmhouse scenarios components diagram
+!include ../assets/C4_templates/C4_Component.puml
+
+title Система "Тёплый Дом", "Сервис сценариев" (C4 Components)
+
+Boundary(service, "Сервис сценариев") {
+    Component(custom_scenarion_ctrl, "Контроллер пользовательских сценариев", "", "HTTP endpoint'ы для CRUD операций с пользовательскими сценариями")
+    Component(scenarion_ctrl, "Контроллер управления сценариями", "", "HTTP endpoint'ы для управления жизненным циклом сценариев")
+    Component(custom_scenarion_srv, "Сервис пользовательских сценариев", "", "Реализует логику работы с пользовательскими сценариями")
+    Component(scenarion_srv, "Сервис жизненного цикла сценариев", "", "Реализует логику запуска, выполнения и завершения сценариев")
+    Component(custom_scenarion_check, "Валидатор пользовательских сценариев", "", "Проверка безопасности и логичности пользовательских сценариев")
+    Component(event_manager, "Менеджер событий", "", "анализирует события из модулей умного дома")
+    Component(scheduler, "Менеджер расписаний", "", "управляет задачами по расписанию")
+    ComponentDb(scenarios_repo, "Репозиторий сценариев", "", "Хранит сценарии")
+}
+
+ComponentDb_Ext(pgdb, "PostgreSQL", "", "")
+System_Ext(bff, "Backend For Frontend", "", "")
+SystemQueue_Ext(event_queue, "Очередь событий", "Kafka", "")
+System_Ext(modules_service, "Сервисы модулей умного дома", "", "")
+
+Rel(bff, custom_scenarion_ctrl, "CRUD пользовательских сценариев", "HTTP, REST")
+Rel(bff, scenarion_ctrl, "запуск/остановка сценариев", "HTTP, REST")
+
+Rel(custom_scenarion_ctrl, custom_scenarion_srv, "обработка CRUD")
+Rel(custom_scenarion_srv, custom_scenarion_check, "валидация сценария")
+
+Rel(scenarion_ctrl, scenarion_srv, "управление жизненным циклом")
+Rel(scenarion_srv, event_manager, "анализ событий")
+Rel(scenarion_srv, scenarios_repo, "read")
+Rel(scenarion_srv, scheduler, "планирование задач")
+Rel(scenarion_srv, modules_service, "управляющие сигналы", "HTTP, REST")
+
+Rel_U(event_queue, event_manager, "получение событий", "kafka")
+
+Rel_D(custom_scenarion_srv, scenarios_repo, "write")
+Rel(scenarios_repo, pgdb, "")
+
+
+@enduml

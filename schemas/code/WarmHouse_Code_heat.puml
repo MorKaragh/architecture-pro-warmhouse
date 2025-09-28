@@ -1,0 +1,87 @@
+@startuml warmhouse heat class diagram
+
+title Система "Тёплый Дом" — Диаграмма классов: Сервис отопления
+
+skinparam classAttributeIconSize 0
+
+package "api" {
+
+    class CommandsController {
+        + ResponseEntity<Void> setMode(SetModeRequest request)
+        + ResponseEntity<Void> setTargetTemperature(SetTemperatureRequest request)
+    }
+
+    class LoadDataController {
+        + ResponseEntity<HeatStateDto> getCurrentState(String houseId)
+        + ResponseEntity<List<TelemetryRecordDto>> getTelemetry(String houseId, TimeRange range)
+    }
+
+}
+
+package "service" {
+
+    class CommandService {
+        + void setMode(String houseId, HeatMode mode)
+        + void setTargetTemperature(String houseId, float celsius)
+    }
+
+    class LoadDataService {
+        + HeatState getCurrentState(String houseId)
+        + List<TelemetryRecord> getTelemetry(String houseId, TimeRange range)
+    }
+
+    class TelemetryService {
+        + void handleTelemetry(TelemetryRecord record)
+        + void publishEvent(DeviceEvent event)
+    }
+
+}
+
+package "integration" {
+
+    class ModuleAdapter {
+        + void sendCommand(ModuleCommand command)
+        + HeatState readState(String houseId)
+    }
+
+    class EventProducer {
+        + void publish(DeviceEvent event)
+    }
+
+    class TelemetryConsumer {
+        + void consume(TelemetryRecord record)
+    }
+
+}
+
+package "db" {
+
+    interface HeatConfigurationRepository {
+        + HeatingProfile findByHouseId(String houseId)
+        + void save(HeatingProfile profile)
+    }
+
+    interface TelemetryRepository {
+        + void save(TelemetryRecord record)
+        + List<TelemetryRecord> findByHouseIdAndPeriod(String houseId, TimeRange period)
+    }
+
+}
+
+CommandsController -down-> CommandService
+LoadDataController -down-> LoadDataService
+
+TelemetryService -down-> TelemetryRepository
+LoadDataService -down-> TelemetryRepository
+CommandService -down-> HeatConfigurationRepository
+
+LoadDataService --> ModuleAdapter
+CommandService --> ModuleAdapter 
+CommandService --> EventProducer 
+TelemetryService --> EventProducer 
+TelemetryConsumer --> TelemetryService
+
+
+@enduml
+
+

@@ -1,0 +1,24 @@
+@startuml warmhouse context diagram
+!include ../assets/C4_templates/C4_Context.puml
+!include ../assets/icons/go_original_wordmark.puml
+!include ../assets/icons/house_chimney.puml
+
+
+title Система "Тёплый Дом" AS IS
+
+
+Boundary(home, "Домохозяйство") {
+    Person_Ext(customer, "Пользователь", "")
+    System_Ext(heat_system, "Система отопления", "", $sprite="house_chimney")
+}
+
+Enterprise_Boundary(enterprise, "Тёплый Дом") {
+    Person(install_engineer, "Специалист по установке", "Настраивает систему в доме пользователя")
+    System(warmhouse_monolith, "smart_home", "Управление отоплением, проверка температуры", $sprite="go_original_wordmark")
+}
+
+Rel_U(warmhouse_monolith, heat_system, "Полученине показателей, управление отоплением", "HTTP, sync")
+Rel_D(customer, warmhouse_monolith, "Управляет отоплением, проверяет температуру")
+Rel_D(install_engineer, heat_system, "устанавливает")
+
+@enduml

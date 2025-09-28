@@ -1,0 +1,55 @@
+@startuml warmhouse heat components diagram
+!include ../assets/C4_templates/C4_Component.puml
+
+title Система "Тёплый Дом", "Сервис отопления" (C4 Components)
+
+Boundary(main, "Система Тёплый Дом") {
+
+    Boundary(service, "Сервис отопления") {
+        Component(heat_ctrl, "Контроллер управления отоплением", "", "HTTP endpoint'ы управления режимами и температурой")
+        Component(heat_query_ctrl, "Контроллер чтения данных отопления", "", "HTTP endpoint'ы получения текущих показателей")
+
+        Component(heat_command_srv, "Сервис управления отоплением", "", "Реализация логики изменения режимов и параметров")
+        Component(heat_query_srv, "Сервис чтения данных отопления", "", "Реализация логики чтения показателей")
+        Component(module_adapter, "Адаптер к ПАК отопления", "", "Вызовы ПАК + resilience-паттерны")
+        Component(events_srv, "Сервис обработки телеметрии и событий", "", "Получение телеметрии, формирование событий")
+
+        ComponentDb(config_repo, "Репозиторий конфигурации отопления", "", "Хранит настройки и профили отопления")
+        ComponentDb(tele_repo, "Репозиторий показателей телеметрии", "", "Хранит показатели телеметрии")
+    }
+
+    ComponentDb_Ext(pgdb, "PostgreSQL", "", "")
+    System_Ext(bff, "Backend for frontend", "", "")
+    SystemQueue_Ext(event_queue, "Очередь событий", "Kafka", "")
+    SystemQueue_Ext(message_broker, "Брокер данных телеметрии", "Kafka", "")
+
+}
+
+Boundary(home, "Домохозяйство") {
+    System_Ext(heat_module, "ПАК Модуль отопления", "")
+}
+
+Rel(bff, heat_ctrl, "управляющие сигналы", "HTTP, REST")
+Rel(bff, heat_query_ctrl, "получение данных", "HTTP, REST")
+
+Rel(heat_ctrl, heat_command_srv, "обработка команд")
+Rel(heat_query_ctrl, heat_query_srv, "обработка запросов")
+Rel(heat_command_srv, module_adapter, "вызов ПАК")
+Rel(heat_query_srv, module_adapter, "вызов ПАК")
+
+Rel(module_adapter, heat_module, "управляющие сигналы и чтение данных", "через gateway")
+
+Rel_U(message_broker, events_srv, "получение телеметрии", "kafka")
+Rel(events_srv, event_queue, "события устройств", "kafka")
+Rel(heat_command_srv, event_queue, "события управления", "kafka")
+Rel(events_srv, tele_repo, "read \ write")
+
+Rel(heat_command_srv, config_repo, "read")
+Rel(heat_query_srv, tele_repo, "read \ write")
+Rel_D(heat_ctrl, config_repo, "write")
+BiRel_D(config_repo, pgdb, "")
+BiRel_D(tele_repo, pgdb, "")
+
+@enduml
+
+

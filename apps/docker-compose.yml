@@ -4,10 +4,74 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: smarthome-postgres
-  ## тут нужно добавить настройки
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres # да, я знаю что секреты надо выносить хотя бы в .env, но проверять так удобнее
+      - POSTGRES_DB=smarthome
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./smart_home/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  heat-service:
+    build:
+      context: ./heat-service
+      dockerfile: Dockerfile
+    container_name: heat-service
+    ports:
+      - "8082:8082"
+    environment:
+      - DB_PASSWORD=postgres
+      - DB_USER=postgres
+      - DB_URL=jdbc:postgresql://postgres:5432/smarthome
+      - GATEWAY_URL=http://modules-gateway:8083
+    depends_on:
+      - modules-gateway
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  modules-gateway:
+    build:
+      context: ./modules-gateway
+      dockerfile: Dockerfile
+    container_name: modules-gateway
+    ports:
+      - "8083:8083"
+    environment:
+      - DB_PASSWORD=postgres
+      - DB_USER=postgres
+      - DB_URL=jdbc:postgresql://postgres:5432/smarthome
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - smarthome-network
 
   temperature-api:
-  ## тут нужно добавить приложение
+    build:
+      context: ./temperature-api
+      dockerfile: Dockerfile
+    container_name: temperature-api
+    ports:
+      - "8081:8081"
+    environment:
+      - GATEWAY_URL=http://modules-gateway:8083
+      - MODULE_HOME_ID=default-home
+      - MODULE_ID=temperature-module-factory-001
+    depends_on:
+      - modules-gateway
+    restart: unless-stopped
+    networks:
+      - smarthome-network
 
   app:
     build:
@@ -21,7 +85,10 @@ services:
         condition: service_started
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/smarthome
+
       - TEMPERATURE_API_URL=http://temperature-api:8081
+
+      # - TEMPERATURE_API_URL=http://modules-gateway:8083/api/v1/modules/temperature-module-factory-001/proxy
     ports:
       - "8080:8080"
     restart: unless-stopped

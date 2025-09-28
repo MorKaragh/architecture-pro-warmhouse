@@ -1,0 +1,57 @@
+@startuml warmhouse containers diagram
+!include ../assets/C4_templates/C4_Container.puml
+
+title Система "Тёплый Дом" TO BE (C4 Containers)
+
+Person_Ext(user, "Пользователь", "")
+
+Boundary(home, "Домохозяйство", "содержит один или несколько модулей") {
+    Container(heat, "ПАК Модуль отопления", "Java, REST API", "Предоставляет данные отопления и механизмы управления им")
+    Container(locks, "ПАК Модуль дверей", "Java, REST API", "Предоставляет данные замков и механизмы управления им")
+    Container(surveillance, "ПАК Модуль видеонаблюдения", "Java, REST API", "Предоставляет данные видеокамер и механизмы управления им")
+    Container(light, "ПАК Модуль освещения", "Java, REST API", "Предоставляет данные освещения и механизмы управления им")
+}
+
+Enterprise_Boundary(enterprise, "Тёплый Дом") {
+    Container(gateway, "Gateway для модулей", "Java, Spring", "Регистрация и авторизация модулей, маршрутизация запросов, телеметрия и аудит")
+    Container(user_gui, "UI управления умным домом" , "PWA, React")
+
+    Container(scenarios, "Сервис сценариев", "Java, Spring", "Управляет (запускает, проверяет, хранит) пользовательскими и предустановленными сценариями")
+    Container(bff, "Backend For Frontend", "Java, Spring", "Gateway для frontend'а, управляет авторизацией, маршрутизацией и и.п.")
+
+    Container(auth, "User service", "Java, Spring", "Аутентификация. авторизация и каталог пользователей")
+
+    Boundary(modules, "Сервисы модулей") {
+        Container(heat_be, "Сервис отопления", "Java, Spring", "Взаимодействие с соответствующим ПАК в доме")
+        Container(locks_be, "Сервис дверей", "Java, Spring", "Взаимодействие с соответствующим ПАК в доме")
+        Container(surveillance_be, "Сервис видеонаблюдения", "Java, Spring", "Взаимодействие с соответствующим ПАК в доме")
+        Container(light_be, "Сервис освещения", "Java, Spring", "Взаимодействие с соответствующим ПАК в доме")
+    }
+
+    ContainerQueue(eventq, "Очередь событий", "kafka")
+    ContainerQueue(messageq, "Брокер данных телеметрии", "kafka")
+
+}
+
+BiRel(heat, gateway, "тут и далее - передача показателей, получение управляющих сигналог", " HTTP или специфичный для устройства протокол")
+BiRel(surveillance, gateway, "...")
+BiRel(light, gateway, "...")
+BiRel(locks, gateway, "...")
+
+Rel(user, user_gui, "", "через браузер")
+Rel(user_gui, bff, "", "HTTP, REST")
+Rel(bff, modules, "получение данных, передача управляющих сигналов")
+
+Rel_U(modules, gateway, "передача управляющих сигналов", "HTTP, REST")
+Rel(gateway, messageq, "передача данных телеметрии", "kafka")
+Rel(modules,messageq , "получение данных телеметрии", "kafka")
+Rel(modules, eventq, "события устройств", "kafka")
+Rel(scenarios, eventq, "получение событий", "kafka")
+Rel(scenarios, modules, "управляющие сигналы", "HTTP, REST")
+Rel(bff, scenarios, "сохранение польз.сценария, запуск сценариев")
+
+Rel_R(bff, auth,"аутентификация, авторизация", "HTTP, REST")
+Rel_L(gateway, auth, "аутентификация, авторизация", "HTTP, REST")
+
+
+@enduml

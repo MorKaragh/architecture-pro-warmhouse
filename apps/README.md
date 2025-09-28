@@ -28,6 +28,20 @@ docker-compose up -d
 
 The API will be available at http://localhost:8080
 
+Additionally, a simple temperature sensor emulator will be available at:
+
+- Temperature API: http://localhost:8081/temperature?location=yard
+
+It returns JSON like:
+
+```json
+{
+  "location": "yard",
+  "value": 21.3,
+  "unit": "C"
+}
+```
+
 ### Option 2: Manual setup
 
 If you prefer to run the application without Docker:
